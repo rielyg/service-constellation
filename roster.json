@@ -1,0 +1,183 @@
+{
+  "_note": "Thoracic Oncology Service roster. Each doctor lists one or more OpenAlex author IDs (some people have split profiles). Entries with verify:true have OpenAlex profiles that look mixed with other people and should be checked. Use \"since\" (earliest publication year) or \"exclude\" (list of OpenAlex work IDs) to drop papers that belong to someone else.",
+  "doctors": [
+    {
+      "name": "Kathryn C. Arbour",
+      "ids": [
+        "A5047053195"
+      ]
+    },
+    {
+      "name": "Mark Awad",
+      "ids": [
+        "A5086249998"
+      ]
+    },
+    {
+      "name": "Jamie E. Chaft",
+      "ids": [
+        "A5090385143"
+      ]
+    },
+    {
+      "name": "Joseph M. Chan",
+      "ids": [
+        "A5016682112"
+      ]
+    },
+    {
+      "name": "Robert Daly",
+      "ids": [
+        "A5002588348",
+        "A5028976989",
+        "A5158554447"
+      ],
+      "_why": "OpenAlex splits his work across three profiles"
+    },
+    {
+      "name": "Alexander Drilon",
+      "ids": [
+        "A5063199354"
+      ]
+    },
+    {
+      "name": "Juliana Eng",
+      "ids": [
+        "A5049696010"
+      ]
+    },
+    {
+      "name": "Afsheen Iqbal",
+      "ids": [
+        "A5010342336"
+      ]
+    },
+    {
+      "name": "Justin Jee",
+      "ids": [
+        "A5058907108"
+      ]
+    },
+    {
+      "name": "Mark Jeng",
+      "ids": [
+        "A5019319568"
+      ]
+    },
+    {
+      "name": "Mark G. Kris",
+      "ids": [
+        "A5039791495"
+      ]
+    },
+    {
+      "name": "Yonit Lavin",
+      "ids": [
+        "A5073819212"
+      ]
+    },
+    {
+      "name": "Jake June-Koo Lee",
+      "ids": [
+        "A5053331766"
+      ]
+    },
+    {
+      "name": "Piro Lito",
+      "ids": [
+        "A5055707551"
+      ]
+    },
+    {
+      "name": "Kenneth K. Ng",
+      "ids": [
+        "A5085498397"
+      ]
+    },
+    {
+      "name": "Michael D. Offin",
+      "ids": [
+        "A5006697352"
+      ]
+    },
+    {
+      "name": "Paul K. Paik",
+      "ids": [
+        "A5001058762"
+      ]
+    },
+    {
+      "name": "Isabel Preeshagul",
+      "ids": [
+        "A5058327046"
+      ]
+    },
+    {
+      "name": "Gregory J. Riely",
+      "ids": [
+        "A5060033755"
+      ]
+    },
+    {
+      "name": "Rachel Rosenblum",
+      "ids": [
+        "A5038125782"
+      ],
+      "exclude": [
+        "W3212176398",
+        "W3092213996",
+        "W4248212702",
+        "W2472843655",
+        "W3172125343",
+        "W2132569527",
+        "W4385822284",
+        "W2167852316",
+        "W1979306247",
+        "W4385823791",
+        "W2492734824",
+        "W1669287439",
+        "W2803351929",
+        "W1979505631"
+      ],
+      "_why": "Profile also holds psychoanalysis papers (2000-2021) by a different Rachel E. Rosenblum"
+    },
+    {
+      "name": "Jessica Ross",
+      "ids": [
+        "A5111678773"
+      ],
+      "since": 2010,
+      "_why": "Profile also holds 1998-2000 HLA typing papers by a different Jessica S. Ross"
+    },
+    {
+      "name": "Charles M. Rudin",
+      "ids": [
+        "A5049524331"
+      ]
+    },
+    {
+      "name": "Fernando C. Santini",
+      "ids": [
+        "A5029627466"
+      ]
+    },
+    {
+      "name": "Adam J. Schoenfeld",
+      "ids": [
+        "A5010486958"
+      ]
+    },
+    {
+      "name": "Cardinale B. Smith",
+      "ids": [
+        "A5011884494"
+      ]
+    },
+    {
+      "name": "Helena A. Yu",
+      "ids": [
+        "A5014837967"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "service-constellation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch": "python scripts/fetch_openalex.py",
+    "demo-data": "python scripts/make_demo_data.py",
+    "render": "node scripts/render.mjs --size 2400"
+  }
+}

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Constellation</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #160e22; color: #f4f1ff;
+    font-family: "Helvetica Neue", Arial, sans-serif; text-align: left; }
+  #wrap { position: relative; width: 100vmin; height: 100vmin; margin: 0 auto; }
+  canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #tip { position: fixed; pointer-events: none; background: #f4f1ff; color: #160e22;
+    padding: 6px 9px; border-radius: 4px; font-size: 13px; line-height: 1.4; display: none; max-width: 320px; }
+  #legend { max-width: 100vmin; margin: 12px auto 32px; padding: 0 3.5vmin; font-size: 13px; line-height: 1.6; }
+  #legend a { color: #9fd8ff; }
+  body.render #legend, body.render #tip { display: none; }
+  body.render #wrap { width: auto; height: auto; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="tip"></div>
+<div id="legend">
+  Each cluster is one doctor on the Thoracic Oncology Service, and each point is one of their most cited papers
+  (OpenAlex). Point size scales with citations. Within a cluster, recent papers sit near the core and older ones
+  trail out along the arms. Papers written by two or more doctors on the service sit between them, tied to each
+  author's core and ringed in their colors. Color runs from violet for the longest-publishing doctors to gold for
+  the newest. Rays mark papers cited this week, one ray per new citation.
+  Hover for details, click a paper to open it in OpenAlex. <a href="gallery.html">Past weeks</a>
+</div>
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/seedrandom.min.js"></script>
+<script src="constellation.js"></script>
+<script>
+(async function () {
+  const q = new URLSearchParams(location.search);
+  const renderMode = q.has("render");
+  if (renderMode) document.body.classList.add("render");
+  const data = await (await fetch("data/service.json", { cache: "no-store" })).json();
+
+  const canvas = document.getElementById("c");
+  const size = renderMode ? +(q.get("size") || 2000)
+    : Math.round(Math.min(innerWidth, innerHeight) * (devicePixelRatio || 1));
+  canvas.width = size; canvas.height = size;
+  if (renderMode) { canvas.style.width = size + "px"; canvas.style.height = size + "px"; }
+
+  const out = Constellation.render(canvas, data, { seed: q.get("seed") || undefined });
+  window.__done = true;
+  if (renderMode) return;
+
+  const tip = document.getElementById("tip");
+  const fmt = (n) => n.toLocaleString("en-US");
+  const hit = (ev) => {
+    const b = canvas.getBoundingClientRect();
+    const x = (ev.clientX - b.left) * canvas.width / b.width, y = (ev.clientY - b.top) * canvas.height / b.height;
+    const near = size * 0.012;
+    let best = null, bd = Infinity;
+    out.docs.forEach((d) => { const dd = Math.hypot(d.px - x, d.py - y); if (dd < near && dd < bd) { best = { doc: d }; bd = dd; } });
+    if (best) return best;
+    out.works.forEach((w) => { const dd = Math.hypot(w.x - x, w.y - y); if (dd < Math.max(w.r * 1.8, near * 0.5) && dd < bd) { best = { work: w }; bd = dd; } });
+    return best;
+  };
+  canvas.addEventListener("mousemove", (ev) => {
+    const h = hit(ev);
+    if (!h) { tip.style.display = "none"; return; }
+    if (h.doc) {
+      const d = h.doc;
+      tip.innerHTML = `<b>${d.name}</b><br>${fmt(d.works)} works, ${fmt(d.cites)} citations<br>${d.shared} shared papers shown`;
+    } else {
+      const w = h.work;
+      tip.innerHTML = `${w.members.map((i) => out.docs[i].name).join(", ")}<br>${w.year} | ${fmt(w.cites)} citations` +
+        (w.fresh ? ` | +${w.fresh} this week` : "");
+    }
+    tip.style.left = ev.clientX + 14 + "px"; tip.style.top = ev.clientY + 14 + "px";
+    tip.style.display = "block";
+  });
+  canvas.addEventListener("mouseleave", () => (tip.style.display = "none"));
+  canvas.addEventListener("click", (ev) => {
+    const h = hit(ev);
+    if (h && h.work && !data.simulated) window.open("https://openalex.org/" + h.work.id, "_blank");
+  });
+})();
+</script>
+</body>
+</html>

@@ -114,8 +114,9 @@ def main():
             ids.append(wid)
         per_doc.append(ids)
         years = sorted(info[x][0] for x in ids if info[x][0])
-        # 5th percentile resists a stray early paper from a mis-merged profile
-        start = years[len(years) // 20] if years else today[:4]
+        # Third-earliest year: resists one or two stray early papers from a
+        # mis-merged profile without pulling prolific careers toward the present
+        start = years[min(2, len(years) - 1)] if years else today[:4]
         doctors.append({
             "name": d["name"],
             "start": int(start),

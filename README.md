@@ -37,13 +37,6 @@ scripts/
 .github/workflows/weekly.yml
 ```
 
-## Setup
-
-1. Push this folder to a new GitHub repository.
-2. Settings > Pages > Build and deployment > Source: GitHub Actions.
-3. Settings > Secrets and variables > Actions. Add `OPENALEX_API_KEY` (the same key used by the art repository) and optionally `OPENALEX_MAILTO`.
-4. Actions tab > Weekly constellation > Run workflow, to replace the simulated preview with real data.
-
 ## Running locally
 
 ```

@@ -74,7 +74,7 @@ def fetch_works(doc):
     while cursor:
         page = get("https://api.openalex.org/works", {
             "filter": f"authorships.author.id:{'|'.join(ids)},is_retracted:false",
-            "select": "id,publication_year,cited_by_count,primary_topic,type",
+            "select": "id,publication_year,cited_by_count,primary_topic,type,authorships",
             "per-page": "200",
             "cursor": cursor,
         })
@@ -90,6 +90,23 @@ def fetch_works(doc):
     ]
 
 
+def lead_author(w, id_to_doc):
+    """Roster doctor who led the paper: first author if on the service,
+    else last author if on the service, else the earliest on the byline."""
+    byline = []
+    for a in w.get("authorships") or []:
+        aid = ((a.get("author") or {}).get("id") or "").rsplit("/", 1)[-1]
+        if aid in id_to_doc:
+            byline.append((a.get("author_position"), id_to_doc[aid]))
+    if not byline:
+        return None
+    for pos in ("first", "last"):
+        for p, i in byline:
+            if p == pos:
+                return i
+    return byline[0][1]
+
+
 def latest_snapshot(today):
     snaps = sorted(p for p in SNAP_DIR.glob("*.json") if p.stem < today)
     return json.loads(snaps[-1].read_text()) if snaps else {}
@@ -99,6 +116,8 @@ def main():
     today = dt.date.today().isoformat()
     roster = json.loads(ROSTER.read_text())["doctors"]
 
+    id_to_doc = {aid: i for i, d in enumerate(roster) for aid in d["ids"]}
+    lead = {}        # work id -> roster index of the lead service author
     info = {}        # work id -> (year, cites)
     members = {}     # work id -> set of doctor indices
     per_doc = []     # list of work ids per doctor, most cited first
@@ -111,6 +130,8 @@ def main():
             wid = w["id"].rsplit("/", 1)[-1]
             info[wid] = (w.get("publication_year") or 0, w["cited_by_count"])
             members.setdefault(wid, set()).add(i)
+            if wid not in lead:
+                lead[wid] = lead_author(w, id_to_doc)
             ids.append(wid)
         per_doc.append(ids)
         years = sorted(info[x][0] for x in ids if info[x][0])
@@ -139,7 +160,9 @@ def main():
         year, cites = info[wid]
         counts[wid] = cites
         fresh = max(0, cites - prev[wid]) if wid in prev else 0
-        rows.append([wid, year, cites, fresh, sorted(members[wid])])
+        ms = sorted(members[wid])
+        ld = lead.get(wid)
+        rows.append([wid, year, cites, fresh, ms, ld if ld in members[wid] else ms[0]])
 
     shared = sum(1 for r in rows if len(r[4]) > 1)
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -149,7 +172,7 @@ def main():
         "top_n": TOP_N,
         "doctors": doctors,
         "new_citations_this_week": sum(r[3] for r in rows),
-        "fields": ["id", "year", "cites", "new_this_week", "doctors"],
+        "fields": ["id", "year", "cites", "new_this_week", "doctors", "lead"],
         "works": rows,
     }, separators=(",", ":")))
 

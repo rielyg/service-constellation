@@ -26,11 +26,19 @@
     const rand = (a, b) => a + (b - a) * rng();
 
     const docs = raw.doctors.map((d, i) => ({ ...d, i, own: 0, shared: 0 }));
-    const works = raw.works.map(([id, year, cites, fresh, members]) => ({ id, year, cites, fresh, members }));
+    const works = raw.works.map(([id, year, cites, fresh, members, lead]) => ({ id, year, cites, fresh, members, lead }));
     works.forEach((w) => w.members.forEach((m) => {
       docs[m].own += w.cites;
       if (w.members.length > 1) docs[m].shared += 1;
     }));
+
+    // Each paper lives in its lead author's cluster. Older data files have no
+    // lead field: fall back to the most junior service author on the paper.
+    works.forEach((w) => {
+      if (w.lead == null || !w.members.includes(w.lead)) {
+        w.lead = w.members.reduce((a, b) => (docs[b].start > docs[a].start ? b : a));
+      }
+    });
 
     // Colors by seniority
     const order = docs.slice().sort((a, b) => a.start - b.start || b.cites - a.cites);
@@ -101,8 +109,8 @@
     const rScale = (c) => S * (0.0016 + 0.0105 * Math.sqrt(c / maxCites));
     works.forEach((w) => {
       w.r = rScale(w.cites);
-      if (w.members.length === 1) {
-        const d = docs[w.members[0]];
+      {
+        const d = docs[w.lead];
         const span = Math.max(4, NOW - d.start);
         const age = Math.min(1, Math.max(0, (NOW - w.year) / span));
         const arm = Math.floor(rng() * d.arms);
@@ -110,12 +118,6 @@
         const dist = d.pr * (0.1 + 0.9 * Math.pow(age, 0.85)) * rand(0.82, 1.12);
         w.x = d.px + Math.cos(a) * dist;
         w.y = d.py + Math.sin(a) * dist;
-      } else {
-        const ms = w.members.map((i) => docs[i]);
-        let wx = 0, wy = 0, tot = 0;
-        ms.forEach((d) => { const q = rand(0.6, 1.4); wx += d.px * q; wy += d.py * q; tot += q; });
-        w.x = wx / tot + rand(-1, 1) * S * 0.012;
-        w.y = wy / tot + rand(-1, 1) * S * 0.012;
       }
     });
 
@@ -158,13 +160,14 @@
       ctx.beginPath(); ctx.arc(d.px, d.py, d.pr * 1.35, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Bridges from each shared paper to its doctors' cores
+    // Bridges from each shared paper to its other service authors' cores
     works.filter((w) => w.members.length > 1).forEach((w) => {
       w.members.forEach((i) => {
+        if (i === w.lead) return;
         const d = docs[i];
         const g = ctx.createLinearGradient(d.px, d.py, w.x, w.y);
         g.addColorStop(0, rgba(d.color, 0.05));
-        g.addColorStop(1, rgba(d.color, 0.28));
+        g.addColorStop(1, rgba(d.color, 0.2));
         ctx.strokeStyle = g;
         ctx.lineWidth = Math.max(0.6, w.r * 0.16);
         const mx = (d.px + w.x) / 2 + rand(-1, 1) * S * 0.02;
@@ -175,7 +178,7 @@
 
     // Papers
     works.forEach((w) => {
-      const col = w.members.length === 1 ? docs[w.members[0]].color : d3.hsl("#fff4d6");
+      const col = docs[w.lead].color;
       const glow = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, w.r * 3);
       glow.addColorStop(0, rgba(col, 0.32));
       glow.addColorStop(1, rgba(col, 0));
@@ -184,7 +187,7 @@
     });
     ctx.globalCompositeOperation = "source-over";
     works.forEach((w) => {
-      const col = w.members.length === 1 ? docs[w.members[0]].color : d3.hsl("#fff4d6");
+      const col = docs[w.lead].color;
       const core = d3.hsl(col.h, Math.min(1, col.s * 1.05), Math.min(0.86, col.l + 0.04));
       ctx.fillStyle = rgba(core, 0.92);
       ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2); ctx.fill();

@@ -49,7 +49,7 @@
 
     // Cluster size by citations of the papers shown
     const maxOwn = d3.max(docs, (d) => d.own) || 1;
-    docs.forEach((d) => (d.R = 0.035 + 0.11 * Math.sqrt(d.own / maxOwn)));
+    docs.forEach((d) => (d.R = 0.045 + 0.14 * Math.sqrt(d.own / maxOwn)));
 
     // Pairwise shared-paper counts pull collaborators together
     const pair = new Map();
@@ -70,10 +70,10 @@
     const sim = d3.forceSimulation(docs)
       .randomSource(layoutRng)
       .force("link", d3.forceLink(links)
-        .distance((l) => (l.source.R + l.target.R) * 1.55)
-        .strength((l) => 0.02 + 0.25 * Math.sqrt(l.n / maxN)))
+        .distance((l) => (l.source.R + l.target.R) * 2.1)
+        .strength((l) => 0.01 + 0.15 * Math.sqrt(l.n / maxN)))
       .force("charge", d3.forceManyBody().strength(-0.004))
-      .force("collide", d3.forceCollide((d) => d.R * 1.25).strength(1))
+      .force("collide", d3.forceCollide((d) => d.R * 1.7).strength(1))
       .force("x", d3.forceX(0).strength(0.04))
       .force("y", d3.forceY(0).strength(0.04))
       .stop();
@@ -160,20 +160,24 @@
       ctx.beginPath(); ctx.arc(d.px, d.py, d.pr * 1.35, 0, Math.PI * 2); ctx.fill();
     });
 
-    // Bridges from each shared paper to its other service authors' cores
-    works.filter((w) => w.members.length > 1).forEach((w) => {
-      w.members.forEach((i) => {
-        if (i === w.lead) return;
-        const d = docs[i];
-        const g = ctx.createLinearGradient(d.px, d.py, w.x, w.y);
-        g.addColorStop(0, rgba(d.color, 0.05));
-        g.addColorStop(1, rgba(d.color, 0.2));
-        ctx.strokeStyle = g;
-        ctx.lineWidth = Math.max(0.6, w.r * 0.16);
-        const mx = (d.px + w.x) / 2 + rand(-1, 1) * S * 0.02;
-        const my = (d.py + w.y) / 2 + rand(-1, 1) * S * 0.02;
-        ctx.beginPath(); ctx.moveTo(d.px, d.py); ctx.quadraticCurveTo(mx, my, w.x, w.y); ctx.stroke();
-      });
+    // Arcs: each doctor's three strongest collaborations, width by shared papers
+    const shown = new Set();
+    docs.forEach((d) => {
+      links.filter((l) => l.source === d || l.target === d)
+        .sort((a, b) => b.n - a.n).slice(0, 3).forEach((l) => shown.add(l));
+    });
+    [...shown].forEach((l) => {
+      const a = l.source, b = l.target;
+      const g = ctx.createLinearGradient(a.px, a.py, b.px, b.py);
+      g.addColorStop(0, rgba(a.color, 0.34));
+      g.addColorStop(0.5, rgba(d3.interpolateRgb(a.color, b.color)(0.5), 0.1));
+      g.addColorStop(1, rgba(b.color, 0.34));
+      ctx.strokeStyle = g;
+      ctx.lineWidth = S * (0.0008 + 0.006 * Math.sqrt(l.n / maxN));
+      const dx = b.px - a.px, dy = b.py - a.py;
+      const bend = rand(0.08, 0.2) * (rng() < 0.5 ? -1 : 1);
+      const mx = (a.px + b.px) / 2 - dy * bend, my = (a.py + b.py) / 2 + dx * bend;
+      ctx.beginPath(); ctx.moveTo(a.px, a.py); ctx.quadraticCurveTo(mx, my, b.px, b.py); ctx.stroke();
     });
 
     // Papers
@@ -191,19 +195,6 @@
       const core = d3.hsl(col.h, Math.min(1, col.s * 1.05), Math.min(0.86, col.l + 0.04));
       ctx.fillStyle = rgba(core, 0.92);
       ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2); ctx.fill();
-    });
-
-    // Shared papers carry a ring split into their doctors' colors
-    works.filter((w) => w.members.length > 1).forEach((w) => {
-      const n = w.members.length;
-      const rr = w.r * 1.7;
-      ctx.lineWidth = Math.max(1, w.r * 0.45);
-      w.members.forEach((i, j) => {
-        ctx.strokeStyle = docs[i].color.formatHex();
-        ctx.beginPath();
-        ctx.arc(w.x, w.y, rr, (j / n) * Math.PI * 2 - Math.PI / 2, ((j + 1) / n) * Math.PI * 2 - Math.PI / 2);
-        ctx.stroke();
-      });
     });
 
     // New citations this week: one ray per citation

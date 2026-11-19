@@ -164,6 +164,17 @@ def main():
         ld = lead.get(wid)
         rows.append([wid, year, cites, fresh, ms, ld if ld in members[wid] else ms[0]])
 
+    # Co-authorship matrix over ALL works (not just the top N): papers shared
+    # by each pair of doctors
+    n = len(roster)
+    pairs = [[0] * n for _ in range(n)]
+    for ms in members.values():
+        ms = sorted(ms)
+        for x in range(len(ms)):
+            for y in range(x + 1, len(ms)):
+                pairs[ms[x]][ms[y]] += 1
+                pairs[ms[y]][ms[x]] += 1
+
     shared = sum(1 for r in rows if len(r[4]) > 1)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({
@@ -174,6 +185,7 @@ def main():
         "new_citations_this_week": sum(r[3] for r in rows),
         "fields": ["id", "year", "cites", "new_this_week", "doctors", "lead"],
         "works": rows,
+        "pairs": pairs,
     }, separators=(",", ":")))
 
     SNAP_DIR.mkdir(parents=True, exist_ok=True)

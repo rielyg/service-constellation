@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Co-authorship</title>
+<style>
+  html, body { margin: 0; background: #ffffff; color: #222;
+    font-family: "Helvetica Neue", Arial, sans-serif; text-align: left; }
+  #wrap { width: 100vmin; height: 100vmin; margin: 0 auto; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #tip { position: fixed; pointer-events: none; background: #222; color: #fff;
+    padding: 6px 9px; border-radius: 4px; font-size: 13px; display: none; }
+  #legend { max-width: 100vmin; margin: 8px auto 32px; padding: 0 3.5vmin; font-size: 13px; line-height: 1.6; }
+  #legend a { color: #1a5fb4; }
+  body.render #legend, body.render #tip { display: none; }
+  body.render #wrap { width: auto; height: auto; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="tip"></div>
+<div id="legend">
+  Each segment is one doctor on the Thoracic Oncology Service. Segment length is the total number of
+  co-authored papers that doctor has with other service members (a paper with three service authors counts
+  once for each pair). Ribbon width is the number of papers a pair has written together. Hover for counts.
+  <a href="index.html">Constellation</a>
+</div>
+<script src="vendor/d3.min.js"></script>
+<script>
+(async function () {
+  const q = new URLSearchParams(location.search);
+  const renderMode = q.has("render");
+  if (renderMode) document.body.classList.add("render");
+  const data = await (await fetch("data/service.json", { cache: "no-store" })).json();
+  const names = data.doctors.map((d) => d.name);
+  const n = names.length;
+
+  // Prefer the all-works matrix; older data files only allow counting within the top papers shown
+  let M = data.pairs, scope = "all papers in OpenAlex";
+  if (!M) {
+    M = names.map(() => new Array(n).fill(0));
+    data.works.forEach((w) => {
+      const m = w[4];
+      for (let a = 0; a < m.length; a++) for (let b = a + 1; b < m.length; b++) { M[m[a]][m[b]]++; M[m[b]][m[a]]++; }
+    });
+    scope = `each doctor's ${data.top_n || 60} most cited papers`;
+  }
+
+  // Alphabetical by last name around the circle
+  const order = d3.range(n).sort((a, b) => {
+    const la = names[a].split(" ").pop(), lb = names[b].split(" ").pop();
+    return la.localeCompare(lb);
+  });
+  const mat = order.map((i) => order.map((j) => M[i][j]));
+  const label = order.map((i) => names[i]);
+
+  const canvas = document.getElementById("c");
+  const size = renderMode ? +(q.get("size") || 2000)
+    : Math.round(Math.min(innerWidth, innerHeight) * (devicePixelRatio || 1));
+  canvas.width = size; canvas.height = size;
+  if (renderMode) { canvas.style.width = size + "px"; canvas.style.height = size + "px"; }
+  const ctx = canvas.getContext("2d");
+
+  const S = size;
+  const outer = S * 0.29, inner = outer - S * 0.016;
+  const cx = S / 2, cy = S * 0.545;
+  // Muted hues evenly around the wheel; alternate lightness so neighbors separate
+  const color = (k) => d3.hsl((k * 360) / n, 0.5, k % 2 ? 0.6 : 0.47).rgb();
+
+  const chords = d3.chord().padAngle(0.018).sortSubgroups(d3.descending)(mat);
+  const arc = d3.arc().innerRadius(inner).outerRadius(outer).context(ctx);
+  const ribbon = d3.ribbon().radius(inner - 1).context(ctx);
+
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, S, S);
+  ctx.save(); ctx.translate(cx, cy);
+
+  // Ribbons, colored by the doctor with more total co-authorships in the pair
+  chords.forEach((c) => {
+    const k = chords.groups[c.source.index].value >= chords.groups[c.target.index].value ? c.source.index : c.target.index;
+    const col = color(k);
+    ctx.beginPath(); ribbon(c);
+    col.opacity = 0.5; ctx.fillStyle = col.toString(); ctx.fill();
+    col.opacity = 0.9; ctx.strokeStyle = col.toString(); ctx.lineWidth = Math.max(0.5, S / 3000); ctx.stroke();
+  });
+
+  // Segments
+  chords.groups.forEach((g) => {
+    ctx.beginPath(); arc(g);
+    ctx.fillStyle = color(g.index).toString(); ctx.fill();
+  });
+
+  // Tick marks every 50 papers
+  ctx.strokeStyle = "#555"; ctx.fillStyle = "#555"; ctx.lineWidth = Math.max(1, S / 2000);
+  const k = d3.sum(chords.groups, (g) => g.endAngle - g.startAngle) / d3.sum(chords.groups, (g) => g.value);
+  chords.groups.forEach((g) => {
+    for (let v = 0; v <= g.value; v += 50) {
+      const a = g.startAngle + v * k - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (outer + 2), Math.sin(a) * (outer + 2));
+      ctx.lineTo(Math.cos(a) * (outer + S * (v % 250 === 0 ? 0.01 : 0.005)), Math.sin(a) * (outer + S * (v % 250 === 0 ? 0.01 : 0.005)));
+      ctx.stroke();
+    }
+  });
+
+  // Names
+  ctx.fillStyle = "#222";
+  ctx.font = `${Math.round(S * 0.0145)}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+  // Spread labels so small neighboring segments don't collide; draw a short
+  // leader line when a label had to move
+  const minGap = 0.05;
+  const pos = chords.groups.map((g) => (g.startAngle + g.endAngle) / 2);
+  for (let it = 0; it < 50; it++) {
+    for (let i = 1; i < pos.length; i++) {
+      const d = pos[i] - pos[i - 1];
+      if (d < minGap) { pos[i - 1] -= (minGap - d) / 2; pos[i] += (minGap - d) / 2; }
+    }
+  }
+  chords.groups.forEach((g, gi) => {
+    const mid = (g.startAngle + g.endAngle) / 2 - Math.PI / 2;
+    const a = pos[gi] - Math.PI / 2;
+    if (Math.abs(a - mid) > 0.002) {
+      const r0 = outer + S * 0.004, r1 = outer + S * 0.016;
+      ctx.strokeStyle = "#888"; ctx.lineWidth = Math.max(1, S / 2000);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(mid) * r0, Math.sin(mid) * r0);
+      ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    ctx.save();
+    ctx.rotate(a);
+    ctx.translate(outer + S * 0.02, 0);
+    const flip = Math.cos(a) < 0;
+    if (flip) { ctx.rotate(Math.PI); ctx.textAlign = "right"; } else ctx.textAlign = "left";
+    ctx.fillText(label[g.index], 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+
+  // Title and note
+  const m = S * 0.035;
+  ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = "#222";
+  ctx.font = `600 ${Math.round(S * 0.022)}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.fillText("Co-authorship among Thoracic Oncology Service members", m, m);
+  ctx.font = `${Math.round(S * 0.014)}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.fillStyle = "#555";
+  ctx.fillText(`Ribbon width: papers written together. Counted across ${scope}. Ticks every 50 co-authorships.`, m, m + S * 0.034);
+  ctx.textBaseline = "bottom"; ctx.textAlign = "right";
+  ctx.fillText(`OpenAlex, ${data.snapshot_date}`, S - m, S - m);
+
+  window.__done = true;
+  if (renderMode) return;
+
+  // Hover: segment totals and pair counts
+  const tip = document.getElementById("tip");
+  canvas.addEventListener("mousemove", (ev) => {
+    const b = canvas.getBoundingClientRect();
+    const x = (ev.clientX - b.left) * S / b.width - cx, y = (ev.clientY - b.top) * S / b.height - cy;
+    const r = Math.hypot(x, y);
+    let a = Math.atan2(y, x) + Math.PI / 2; if (a < 0) a += 2 * Math.PI;
+    let html = null;
+    if (r >= inner && r <= outer + S * 0.12) {
+      const g = chords.groups.find((g) => a >= g.startAngle && a <= g.endAngle);
+      if (g) html = `<b>${label[g.index]}</b><br>${g.value} co-authorships with service members`;
+    } else if (r < inner) {
+      for (const c of chords) {
+        ctx.save(); ctx.translate(cx, cy); ctx.beginPath(); ribbon(c);
+        const hit = ctx.isPointInPath(x + cx, y + cy); ctx.restore();
+        if (hit) { html = `${label[c.source.index]} and ${label[c.target.index]}<br>${c.source.value} papers together`; break; }
+      }
+    }
+    if (!html) { tip.style.display = "none"; return; }
+    tip.innerHTML = html;
+    tip.style.left = ev.clientX + 14 + "px"; tip.style.top = ev.clientY + 14 + "px"; tip.style.display = "block";
+  });
+  canvas.addEventListener("mouseleave", () => (tip.style.display = "none"));
+})();
+</script>
+</body>
+</html>

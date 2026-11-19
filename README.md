@@ -14,6 +14,10 @@ Generative art from the publication and citation record of the Thoracic Oncology
 
 The image carries no names. The interactive page shows names, citation counts and shared papers on hover.
 
+## Co-authorship Circos plot
+
+`site/circos.html` draws a plain chord diagram of co-authorship among the same doctors, rendered each week to `site/images/circos-DATE.png` and `circos-latest.png`. Each segment is one doctor, with length equal to their total co-authorships with other service members. Ribbon width is the number of papers a pair wrote together, counted across all of each doctor's OpenAlex works (the `pairs` matrix in `service.json`).
+
 ## Roster
 
 `roster.json` lists each doctor with one or more OpenAlex author IDs. Some people have their work split over two profiles (add both IDs), and some profiles are mixed with other people of the same name (marked `verify`). Works outside Life Sciences and Health Sciences are dropped, which removes most stray papers from mixed profiles. For a profile that still holds someone else's papers, add `"since": YEAR` to drop everything published before that year, or `"exclude": ["W..."]` to drop specific OpenAlex work IDs. The lasting fix is for the person to claim their OpenAlex profile and remove the wrong works, which corrects it at the source. To add, remove or correct someone, edit this file. The layout reshuffles when the roster changes.

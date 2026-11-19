@@ -42,6 +42,9 @@ jobs:
       - name: Render image
         run: node scripts/render.mjs --size 2400
 
+      - name: Render Circos plot
+        run: node scripts/render.mjs --size 2400 --page circos.html --prefix circos-
+
       - name: Commit data and image
         run: |
           git config user.name "constellation-bot"
